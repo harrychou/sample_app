@@ -27,6 +27,17 @@ describe UsersController do
 
       end
 
+      it "non-admin should not see delete link" do
+        get :index 
+        response.should_not have_selector("a", :content => "delete") 
+      end
+
+      it "admin should see delete link" do
+        test_sign_in(Factory(:user, :email => "test-admin@example.com", :admin => true))
+        get :index 
+        response.should have_selector("a", :content => "delete") 
+      end
+
       it "should be successful" do
         get :index
         response.should be_success
@@ -283,6 +294,7 @@ describe UsersController do
         put :update, :id => @user, :user => {}
         response.should redirect_to(signin_path)
       end
+
     end
 
     describe "for signed-in users" do
@@ -301,9 +313,35 @@ describe UsersController do
         put :update, :id => @user, :user => {}
         response.should redirect_to(root_path)
       end
+
+
     end
 
   end
+
+  describe "new/create only for un-authenticated users" do
+
+    describe "for signed-in users" do
+
+      before(:each) do
+        wrong_user = Factory(:user, :email => "user@example.net")
+        test_sign_in(wrong_user)
+      end
+
+      it "should deny access to 'new'" do
+        get :new
+        response.should redirect_to(root_path) 
+      end
+
+      it "should deny access to 'create'" do
+        post :create, :user => {} 
+        response.should redirect_to(root_path)
+      end
+ 
+    end
+
+  end
+
 
   describe "DELETE 'destroy'" do
 
@@ -329,14 +367,20 @@ describe UsersController do
     describe "as an admin user" do
 
       before(:each) do
-        admin = Factory(:user, :email => "admin@example.com", :admin => true)
-        test_sign_in(admin)
+        @admin = Factory(:user, :email => "admin@example.com", :admin => true)
+        test_sign_in(@admin)
       end
 
       it "should destroy the user" do
         lambda do
           delete :destroy, :id => @user
         end.should change(User, :count).by(-1)
+      end
+
+      it "should not destroy himself" do
+        lambda do
+          delete :destroy, :id => @admin	
+        end.should_not change(User, :count).by(-1)
       end
 
       it "should redirect to the users page" do
